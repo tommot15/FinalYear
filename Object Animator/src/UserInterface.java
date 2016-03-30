@@ -7,13 +7,13 @@ import java.awt.event.*;
 public class UserInterface{
 	
 	JFrame frame;
-	JPanel menu, animatePanel, editorPanel, wrapper, animator;
+	JPanel menu, animatePanel, editorPanel, wrapper, animator, editorPanel2;
 	
 	JMenuBar menuBar;
 	JMenu file, edit, help;
 	JMenuItem newFile, exit, undo, redo, faq;
 	
-	JTextArea textEditor;
+	JTextArea textEditor, textEditor2;
 	
 	
 	
@@ -35,7 +35,9 @@ public class UserInterface{
 		redo = new JMenuItem("Redo");
 		faq = new JMenuItem("Frequently Asked Questions");
 		
-		textEditor = new JTextArea();
+		textEditor = new JTextArea("Main {\n\n}");
+		textEditor2 = new JTextArea(" HELLO ");
+		
 		animator = new JPanel();
 		
 		play = new JButton("Play");
@@ -43,27 +45,29 @@ public class UserInterface{
 		play.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent event){
-				addObject();
+				Parser p = new Parser(textEditor.getText());
 			}
 		});
 		
 		menu = new JPanel();
 		animatePanel = new JPanel();
 		editorPanel = new JPanel();
+		editorPanel2 = new JPanel();
 		wrapper = new JPanel();
 		
 		init();
 		frame.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		frame.setBackground(Color.green);
-		frame.setSize(800,600); //This specifies the size of the interface
+		frame.setSize(1200,600); //This specifies the size of the interface
 		
 		frame.setVisible(true); //This ensures the window is visible	
 	}
 	
 	public void init(){
 		frame.add(buildMenu(), BorderLayout.NORTH);
-		wrapper.setLayout(new GridLayout(1,2));		
+		wrapper.setLayout(new GridLayout(1,3));		
 		wrapper.add(buildTextEditor());
+		wrapper.add(buildTextEditor2());
 		wrapper.add(buildAnimator());
 		
 		frame.add(wrapper, BorderLayout.CENTER);
@@ -128,9 +132,15 @@ public class UserInterface{
 		
 		return editorPanel;
 	}
-	
-	public void addObject(){
-		animator.add(new JButton("Hello"));
+	public JPanel buildTextEditor2(){
+		editorPanel2.setLayout(new BorderLayout());
+		
+		textEditor2.setBackground(Color.cyan);
+		JScrollPane js = new JScrollPane(textEditor2);
+		
+		editorPanel2.add(js, BorderLayout.CENTER);
+		
+		return editorPanel2;
 	}
 	
 	public static void main(String[] args){
