@@ -45,7 +45,7 @@ public class UserInterface{
 		play.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent event){
-				Parser p = new Parser(textEditor.getText());
+				Parser p = new Parser(textEditor.getText(), textEditor);
 			}
 		});
 		
