@@ -16,53 +16,76 @@ public class ScanText {
 	}
 
 	public List<TokenNode> scanLine(String l) throws NullPointerException{
-		String line = l.trim();
-		String delim = "\\s|(?<=\\{)|(?=\\{)|(?<=\\})|(?=\\})|(?<=;)|(?=;)|(?<=\\()|(?=\\()|(?<=\\))|(?=\\))";
-		String[] withoutDelim = line.split(delim);
+		String[] lines = l.split("\n");
+		String[] tokens;
+		String delim = "\\s|(?<=\\{)|(?=\\{)|(?<=\\})|(?=\\})|(?<=;)|(?=;)|(?<=\\()|(?=\\()|(?<=\\))|(?=\\)|(?<=,)|(?=,)|(?<=\")|(?=\"))";
 		
-		for(int i = 0; i < withoutDelim.length; i++){
-			if(withoutDelim[i].equals("")){
-				
-			}else{
-				//System.out.println(i + ": \"" + withoutDelim[i] + "\"");
-				tnArray.add(matchToken(withoutDelim[i]));
+		for(int i = 0; i < lines.length; i++)
+		{
+			tokens = lines[i].trim().split(delim);
+			for(String word : tokens){
+				if(word.equals("")){
+					
+				}else{
+					//System.out.println(i + ": \"" + withoutDelim[i] + "\"");
+					tnArray.add(matchToken(word, i));
+				}
 			}
+		}
+		
+		for(TokenNode a : tnArray){
+			System.out.println("TYPE: " + a.getType());
 		}
 		return tnArray;
 	}
 	
-	public TokenNode matchToken(String s1){
+	public TokenNode matchToken(String s1, int l){
 		TokenNode token = new TokenNode();
-		System.out.println("S1 = " + s1);
-		if(s1.matches("[A-Z][a-zA-Z]+")){//check which format the string matches and create a TokenNode
-			token = new TokenNode(s1, "class");
-		}
-		else if(s1.matches("[a-z][a-zA-Z]+")){
-			token = new TokenNode(s1, "identifier");
+		
+		
+		//check which format the string matches and create a TokenNode
+		
+		if(s1.equals("new")){
+			token = new TokenNode(s1, "new", l);
 		}
 		else if(s1.equals("=")){
-			token = new TokenNode(s1, "equal");
+			token = new TokenNode(s1, "equal", l);
 		}
 		else if(s1.equals("{")){
-			token = new TokenNode(s1, "leftBrace");
+			token = new TokenNode(s1, "leftBrace", l);
 		}
 		else if(s1.equals("}")){
-			token = new TokenNode(s1, "rightBrace");
+			token = new TokenNode(s1, "rightBrace", l);
 		}
 		else if(s1.equals("+")){
-			token = new TokenNode(s1, "op");
+			token = new TokenNode(s1, "op", l);
 		}
 		else if(s1.equals(";")){
-			token = new TokenNode(s1, "eol");
+			token = new TokenNode(s1, "eol", l);
 		}
 		else if(s1.equals("(")){
-			token = new TokenNode(s1, "leftParan");
+			token = new TokenNode(s1, "leftParan", l);
 		}
 		else if(s1.equals(")")){
-			token = new TokenNode(s1, "rightParan");
+			token = new TokenNode(s1, "rightParan", l);
 		}
-		else if(Arrays.asList(dataTypes).contains(s1)){
-			token = new TokenNode(s1, "dataType");
+		else if(s1.equals("String") || s1.equals("int")){
+			token = new TokenNode(s1, "dataType", l);
+		}
+		else if(s1.matches("[a-z][a-zA-Z]+")){
+			token = new TokenNode(s1, "identifier", l);
+		}
+		else if(s1.matches("[A-Z][a-zA-Z]+")){
+			token = new TokenNode(s1, "class", l);
+		}
+		else if(s1.matches("[0-9]+")){
+			token = new TokenNode(s1, "num", l);
+		}
+		else if(s1.equals(",")){
+			token = new TokenNode(s1, "comma", l);
+		}
+		else if(s1.equals("\"")){
+			token = new TokenNode(s1, "quote", l);
 		}
 		
 		return token;

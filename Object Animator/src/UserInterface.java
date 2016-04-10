@@ -15,8 +15,6 @@ public class UserInterface{
 	
 	JTextArea textEditor, textEditor2;
 	
-	
-	
 	JButton play;
 	
 	public UserInterface(){
@@ -35,8 +33,8 @@ public class UserInterface{
 		redo = new JMenuItem("Redo");
 		faq = new JMenuItem("Frequently Asked Questions");
 		
-		textEditor = new JTextArea("Main {\n\n}");
-		textEditor2 = new JTextArea(" HELLO ");
+		textEditor = new JTextArea("Main {\n Main() {\n Class cl = new Class(); \n } \n }");
+		textEditor2 = new JTextArea("Class {\n\n Class(String line) { \n String name; \n } \n }");
 		
 		animator = new JPanel();
 		
@@ -45,7 +43,7 @@ public class UserInterface{
 		play.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent event){
-				Parser p = new Parser(textEditor.getText(), textEditor);
+				Parser p = new Parser(textEditor, textEditor2);
 			}
 		});
 		
@@ -146,5 +144,4 @@ public class UserInterface{
 	public static void main(String[] args){
 		UserInterface ui = new UserInterface();
 	}
-	
 }
