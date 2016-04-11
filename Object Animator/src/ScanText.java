@@ -33,9 +33,9 @@ public class ScanText {
 			}
 		}
 		
-		for(TokenNode a : tnArray){
-			System.out.println("TYPE: " + a.getType());
-		}
+//		for(TokenNode a : tnArray){
+//			System.out.println("TYPE: " + a.getType());
+//		}
 		return tnArray;
 	}
 	

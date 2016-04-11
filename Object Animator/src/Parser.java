@@ -19,7 +19,6 @@ public class Parser{
 	List<Object> tmpParam = new ArrayList<Object>();
 	List<Object> arguments = new ArrayList<Object>();
 	List<Object> vars = new ArrayList<Object>();
-	List<Parser> objects = new ArrayList<Parser>();
 	String[] lines;
 	DefaultHighlighter.DefaultHighlightPainter hl;
 	int startIndex, endIndex;
@@ -49,14 +48,17 @@ public class Parser{
 			System.out.println("ITS NOT A block");
 		}
 		
-		for(Parser p : objects){
-			System.out.println("Object Name = " + p.getName());
-			for(Object v : p.getVars()){
-				if(v instanceof Variable)
-				{
-					Variable thisVar = (Variable)v;
-					System.out.println("\t DataType = " + thisVar.getDataType() + " Name = " + thisVar.getName() + " Value = " + thisVar.getValue());
+		for(Object p : vars){
+			if(p instanceof Parser){
+				Parser par = (Parser) p;
+				System.out.println("Object Name = " + par.getName());
+				for(Object v : par.getVars()){
+					if(v instanceof Variable)
+					{
+						Variable thisVar = (Variable)v;
+						System.out.println("\t DataType = " + thisVar.getDataType() + " Name = " + thisVar.getName() + " Value = " + thisVar.getValue());
 
+					}
 				}
 			}
 		}
@@ -79,12 +81,23 @@ public class Parser{
 			isBlock();
 			curr++;
 		}
+		
+		for(Object obj : tmpParam)
+		{
+			if(obj instanceof Parser){
+				Parser ob = (Parser) obj;
+				System.out.println("TMPPARAM Class = " + ob.className + " Name = " + ob.getName());
+			}
+			else{
+				Variable v = (Variable) obj;
+				System.out.println("TMPPARAM DataType = " + v.getDataType() + " Name = " + v.getName() + " Value = " + v.getValue());
+				
+			}
+		}
 	}
 	
 	public boolean isConstOrIsVar(){
 		boolean isVar, isConst;
-		count++;
-		System.out.println("Count = " + count);
 		if(tnArray.get(curr).getType().equals("rightBrace") && constructor){
 			
 			return true;
@@ -109,12 +122,10 @@ public class Parser{
 	}
 
 	public boolean isBlock(){
-		
 		boolean left, mid, varOrConst, right;
 		className = tnArray.get(curr).getVal();
 		
-		
-		if(className.equals(targetClass)){
+		if(className.equals(targetClass) && tnArray.get(curr + 1).getVal().equals("{")){
 			correctClass = true;
 			left = isClass();
 			mid = isLeftBrace();
@@ -126,14 +137,13 @@ public class Parser{
 				return true;
 			}
 		}
-		
 		return false;	
 	}
 	
 	public boolean isConstructor(){
 		
 		boolean isClass, leftParan, args, rightParan, leftBrace, statements, rightBrace;
-		
+		System.out.println("I AM IN ISCONSTRUCTOR");
 		if(className.equals(tnArray.get(curr).getVal())){
 			
 			isClass = isClass();
@@ -211,14 +221,16 @@ public class Parser{
 		
 		if(className.equals(constClass)){
 			if(newClass && name && equal && newKey && newClass2 && leftParan && isParam && rightParan && semiCol){
-				for(int i = 0; i < objects.size(); i++){
-					if(objects.get(i).getName().equals(thisName)){
+				for(Object v : vars){
+					Parser var = (Parser) v;
+					if(var.getName().equals(thisName)){
 						System.out.println("Object Already Exists");
 						return false;
 					}
 				}
+				System.out.println("OBJECT NAME = " + thisName + " CLASS NAME = " + className);
 				p = new Parser(other, thisName, params, className);
-				objects.add(p);
+				vars.add(p);
 				return true;
 			}
 			else{
@@ -241,7 +253,11 @@ public class Parser{
 		name = isVar();
 		semiCol = isSemiColon();
 		
+		System.out.println("DataType = " + data);
+		System.out.println("Name = " + name);
+		System.out.println("SemiColon = " + semiCol);
 		if(data && name && semiCol){
+			System.out.println("HEREEEEEEEEEEE");
 			for(Object v : vars){
 				if(v instanceof Variable){
 					Variable var = (Variable) v;
@@ -250,10 +266,11 @@ public class Parser{
 						return false;
 					}
 				}
+			}
 			newVar = new Variable(dataType, getName);
 			vars.add(newVar);
+			
 			return true;
-			}
 		}
 		
 		return false;
@@ -289,7 +306,6 @@ public class Parser{
 			return false;
 		}
 		else if(tnArray.get(curr).getType().equals("identifier")){ //CAN ONLY DO STRINGS
-			
 			for(Object v : vars){
 				if(v instanceof Variable){
 					Variable var = (Variable) v;
@@ -317,9 +333,7 @@ public class Parser{
 			}
 			return false;
 		}
-		else if(tnArray.get(curr).getType().equals("num")){ //SET FOR LOOP OBJECT : VARS
-															//IF(OBJECT INSTANCEOF VARIABLE)
-															//CREATE VARIABLE
+		else if(tnArray.get(curr).getType().equals("num")){
 			for(Object v : vars){
 				if(v instanceof Variable){	
 					Variable var = (Variable)v;
@@ -459,7 +473,7 @@ public class Parser{
 			removeHighlight();
 			return true;
 		}
-		System.out.println("NOT A LEFT BRACE");
+		System.out.println("NOT A LEFT BRACE = " + tnArray.get(curr).getVal());
 		return false;
 	}
 
@@ -477,8 +491,7 @@ public class Parser{
 	
 	public boolean isArg(int i){
 		highlight();
-		boolean data;
-		boolean name;
+		boolean data, name, thisClass;
 		String thisDataType;
 		int index;
 		index = i;
@@ -493,6 +506,8 @@ public class Parser{
 				thisDataType = tnArray.get(curr).getVal();
 				data = isDataType();
 				name = isVar();
+				System.out.println("DATA = " + data);
+				System.out.println("NAME = " + name);
 				if(tmpParam == null || tmpParam.isEmpty()){
 					System.out.println("NO PARAMETERS");
 					return false;
@@ -515,6 +530,27 @@ public class Parser{
 				return false;
 			}
 		}
+		else if(tnArray.get(curr).getType().equals("class")){
+			if(tmpParam.get(index) instanceof Parser){
+				Parser obj = (Parser) tmpParam.get(index);
+				thisDataType = tnArray.get(curr).getVal();
+				thisClass = isClass();
+				name = isVar();
+				System.out.println("THIS CLASS = " + thisClass);
+				System.out.println("THIS NAME = " + name);
+				if(tmpParam == null || tmpParam.isEmpty()){
+					System.out.println("No parameters");
+					return false;
+				}
+				else if(thisClass && name && obj.className.equals(thisDataType)){
+					isArg(index + 1);
+					return true;
+				}
+				else{
+					System.out.println("ARGUMENTS AND PARAMS DON'T MATCH");
+				}
+			}
+		}
 		System.out.println("NOT AN ARG");
 		return false;
 	}
@@ -531,21 +567,34 @@ public class Parser{
 		{
 			getName = tnArray.get(curr).getVal();
 			name = isVar();
+			System.out.println("IAMHERE");
 			for(Object v : vars){
 				if(v instanceof Variable)
 				{
 					Variable var = (Variable)v;
-					if(var.getName().equals(getName)){ //checks whether the variable exists to pass through
-						if(name){
-							params.add(var);
-							if(isParam()){
-								return true;
-							}
-							else{
-								return false;
-							}
+					if(var.getName().equals(getName) && name){ //checks whether the variable exists to pass through
+						params.add(var);
+						if(isParam()){
+							return true;
+						}
+						else{
+							return false;
 						}
 					}
+				}
+				else if(v instanceof Parser){
+					Parser var = (Parser)v;
+					System.out.println("IAMHERE");
+					if(var.getName().equals(getName) && name){
+						params.add(var);
+						if(isParam()){
+							return true;
+						}
+						else{
+							return false;
+						}
+					}
+					
 				}
 			}
 			System.out.println("Variable doesn't exist");
@@ -618,7 +667,6 @@ public class Parser{
 		return name;
 	}
 	public List<Object> getVars(){
-		
 		return vars;
 	}
 }
