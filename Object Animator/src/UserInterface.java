@@ -7,8 +7,9 @@ import java.awt.event.*;
 public class UserInterface{
 	
 	JFrame frame;
-	JPanel menu, animatePanel, editorPanel, wrapper, animator, editorPanel2;
+	JPanel menu, animatePanel, editorPanel, wrapper, editorPanel2;
 	
+	PrintObjects animator;
 	JMenuBar menuBar;
 	JMenu file, edit, help;
 	JMenuItem newFile, exit, undo, redo, faq;
@@ -16,6 +17,8 @@ public class UserInterface{
 	JTextArea textEditor, textEditor2;
 	
 	JButton play;
+	
+	Parser p;
 	
 	public UserInterface(){
 		
@@ -36,14 +39,16 @@ public class UserInterface{
 		textEditor = new JTextArea("Main {\n Main() {\n Class cl = new Class(); \n } \n }");
 		textEditor2 = new JTextArea("Class {\n\n Class(String line) { \n String name; \n } \n }");
 		
-		animator = new JPanel();
+		animator = new PrintObjects();
 		
 		play = new JButton("Play");
 		
 		play.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent event){
-				Parser p = new Parser(textEditor, textEditor2);
+				animator.objects.clear();
+				animator.rects.clear();
+				p = new Parser(textEditor, textEditor2, animator);
 			}
 		});
 		
@@ -52,12 +57,11 @@ public class UserInterface{
 		editorPanel = new JPanel();
 		editorPanel2 = new JPanel();
 		wrapper = new JPanel();
-		
+		Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 		init();
 		frame.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		frame.setBackground(Color.green);
-		frame.setSize(1200,600); //This specifies the size of the interface
-		
+		frame.setExtendedState(JFrame.MAXIMIZED_BOTH);//This specifies the size of the interface
 		frame.setVisible(true); //This ensures the window is visible	
 	}
 	

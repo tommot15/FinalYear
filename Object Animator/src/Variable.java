@@ -7,7 +7,10 @@ public class Variable{
 	public Variable(String d, String n){
 		this.dataType = d;
 		this.name = n;
-		this.value = "empty";
+		this.value = "";
+	}
+	public Variable(){
+		
 	}
 	
 	public String getDataType(){
@@ -20,6 +23,13 @@ public class Variable{
 	
 	public String getValue(){
 		return this.value;
+	}
+	
+	public void setDataType(String d){
+		this.dataType = d;
+	}
+	public void setName(String n){
+		this.name = n;		
 	}
 	
 	public void setValue(String v){
