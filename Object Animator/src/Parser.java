@@ -1,13 +1,10 @@
-import java.awt.Color;
 import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.swing.JPanel;
+import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.text.BadLocationException;
-import javax.swing.text.DefaultHighlighter;
-import javax.swing.text.Highlighter;
 
 //WHEN SCANNING THE CODE, ASSIGN A LINE NUMBER WHICH CAN BE USED IN THE PARSER
 //TO HIGHLIGHT THE TEXT IN THE TEXT AREA
@@ -15,92 +12,84 @@ import javax.swing.text.Highlighter;
 public class Parser{
 	String name, className, targetClass, code, text, cName;
 	int curr = 0;
-	boolean constructor, correctClass;
+	boolean constructor, correctClass, hasHighlighted, finished;
 	List<TokenNode> tnArray;
 	List<Object> params = new ArrayList<Object>();
 	List<Object> tmpParam = new ArrayList<Object>();
 	List<Object> updatedParams = new ArrayList<Object>();
 	List<Object> vars = new ArrayList<Object>();
+	List<HighlightLine> highlighters = new ArrayList<HighlightLine>();
 	String[] lines;
-	DefaultHighlighter.DefaultHighlightPainter hl;
+	Animator a;
+	int c, lineNo;
+	boolean painted = false;
+	boolean shownError;
 	int startIndex, endIndex;
 	JTextArea main, other;
-	PrintObjects panel;
-	PrintObjects po;
-	int count = 0;
+	int count;
 	Rectangle r;
 	
+	//Constructor for the main method text area
 	public Parser(JTextArea m, JTextArea o, PrintObjects print){
 		tnArray = new ArrayList<TokenNode>(); //Stores each Line into a list
-		code = m.getText();
-		text = m.getText();
-		lines = m.getText().split("\n");
-		main = m;
+		code = m.getText(); //Gets the code from the left text area
+		lines = m.getText().split("\n"); //Splits the code to be tokenized line by line
+		main = m; 
 		other = o;
-		targetClass = "Main";
-		panel = print;
-		hl = new DefaultHighlighter.DefaultHighlightPainter(Color.YELLOW);
-		po = print;
+		targetClass = "Main"; //sets the target class to Main
 		
-		ScanText s = new ScanText();
+		shownError = false; //An error has not been found
+		
+		ScanText s = new ScanText(); //Scans the text
 		tnArray = s.scanLine(code); //Splits the code into TokenNodes
-		if(isBlock()){
-			System.out.println("IT IS A BLOCK");
-		}
-		else{
-			System.out.println("ITS NOT A block");
-		}
+		count = 0;
+		a = new Animator(main, other, highlighters, print); //Creates a new Animator class
 		
-		for(Object p : vars){
-			if(p instanceof Parser){
-				Parser par = (Parser) p;
-				System.out.println("Object Name = " + par.getName());
-				for(Object v : par.getVars()){
-					if(v instanceof Variable){
-						Variable thisVar = (Variable)v;
-						System.out.println("\t DataType = " + thisVar.getDataType() + " Name = " + thisVar.getName() + " Value = " + thisVar.getValue());
-
-					}
+		try{
+			if(!isBlock()){ //Calls isBlock and checks the code
+				if(shownError == false){ //Pops up with a dialog box informing of an error
+					JOptionPane.showMessageDialog(null, "Error in the code, check that all the braces are paired, or\n that parameters are complete");
+					shownError = true;
 				}
 			}
-			if(p instanceof Variable){
-				Variable v = (Variable) p;
-				System.out.println("====== Var name = " + v.getName() + " Var val = " + v.getValue());
+		}
+		catch(IndexOutOfBoundsException ie){
+			if(shownError == false){ //catches an index out of bounds exception error for when braces aren't paired
+				JOptionPane.showMessageDialog(null, "Error in the code, check that all the braces are paired, or\n that parameters are complete");
+				shownError = true;
 			}
 		}
+		//If there are no errors, the animation is started
+		if(shownError!=true){ 
+			a.highlight();
+		}		
 	}
 	
-	public Parser(JTextArea o, String n, List<Object> p, String c){
+	//Constructor for the animation text area
+	public Parser(JTextArea o, String n, List<Object> p, String c, Animator e, int l, boolean error){ 
 		tmpParam = p;
 		name = n;
 		tnArray = new ArrayList<TokenNode>(); //Stores each Line into a list
-		code = o.getText();
-		text = o.getText();
+		code = o.getText(); //Gets the text from the animator text area
 		lines = o.getText().split("\n");
 		other = o;
-		hl = new DefaultHighlighter.DefaultHighlightPainter(Color.YELLOW);
 		ScanText s = new ScanText();
 		tnArray = s.scanLine(code); //Splits the code into TokenNodes
-		
+		shownError = error;
+		a = e;
 		targetClass = c;
-		while(!correctClass && tnArray.get(curr) != null){
+		lineNo = l;
+		
+		while(!correctClass && tnArray.get(curr) != null){ //scans code until the correct class is found
 			isBlock();
 			curr++;
 		}
-		
-		for(Object obj : tmpParam)
-		{
-			if(obj instanceof Parser){
-				Parser ob = (Parser) obj;
-			}
-			else{
-				Variable v = (Variable) obj;
-			}
-		}
 	}
 	
+	//Recursively checks if the code is a constructor or a new variable
 	public boolean isConstOrIsVar(){
 		boolean isVar, isConst;
+		
 		if(tnArray.get(curr).getType().equals("rightBrace") && constructor){
 			return true;
 		}
@@ -123,20 +112,27 @@ public class Parser{
 		return false;
 	}
 
+	//Checks if the code is a class block
 	public boolean isBlock(){
-		boolean left, mid, varOrConst, right;
-		className = tnArray.get(curr).getVal();
-		System.out.println("Class NAME = " + className);
-		if(className.equals(targetClass) && tnArray.get(curr + 1).getVal().equals("{")){
-			correctClass = true;
-			cName = className;
-			left = isClass();
-			mid = isLeftBrace();
-			varOrConst = isConstOrIsVar();
-			right = isRightBrace();
+		boolean classDec, thisClass, leftBrace, varOrConst, rightBrace;
+		
+		className = tnArray.get(curr+1).getVal();
+		
+		//Checks if the class is correct and if the declaration has a right brace
+		if(className.equals(targetClass) && tnArray.get(curr + 2).getVal().equals("{")){
 			
-			if(left && mid && varOrConst && right)
-			{
+			correctClass = true; //Found the class
+			cName = className; //Sets the class name of the Parser
+			
+			//Checks whether the class has the correct structure
+			classDec = isClassDec();
+			thisClass = isClass();
+			leftBrace = isLeftBrace();
+			varOrConst = isConstOrIsVar();
+			rightBrace = isRightBrace();
+			
+			//Returns true if it's the correct structure
+			if(classDec && thisClass && leftBrace && varOrConst && rightBrace){
 				return true;
 			}
 		}
@@ -146,35 +142,38 @@ public class Parser{
 	public boolean isConstructor(){
 		
 		boolean isClass, leftParan, args, rightParan, leftBrace, statements, rightBrace;
+		
+		//Checks if the class name is the same as the constructor name
 		if(className.equals(tnArray.get(curr).getVal())){
 			
+			//Checks whether the constructor has the right structure
 			isClass = isClass();
 			leftParan = isLeftParan();
 			args = isArg(0);
-			for(Object o : updatedParams)
-			{
-				if(o instanceof Parser){
-					Parser p = (Parser) o;
-					System.out.println("UPDATED PARAM NAME(TYPE PARSER): " + p.getName());
-				}
-			}
 			rightParan = isRightParan();
 			leftBrace = isLeftBrace();
 			statements = isVarOrStmt();
 			rightBrace = isRightBrace();
-		
-			System.out.println("isClass = " + isClass + " leftParan = " + leftParan + " isArg=" + args + " rightParan=" + rightParan +
-					" leftBrace=" + leftBrace + " statements=" + statements + " rightBrace=" + rightBrace);
-		
+			
+			//If it's the correct structure, return true
 			if(isClass && leftParan && args && rightParan && leftBrace && statements && rightBrace){
 				return true;
 			}else{
-				System.out.println("CONSTRUCTOR SYNTAX INCORRECT");
+				//Output a dialog box informing the user what is wrong
+				if(shownError == false){
+					JOptionPane.showMessageDialog(null, "Syntax for a constructor isn't correct");
+					shownError = true;
+				}
 				return false;
 			}
 		}
 		else{
-			System.out.println("Class name and constructor name aren't the same");
+			
+			//Output a dialog box informing the user what is wrong
+			if(shownError == false){
+				JOptionPane.showMessageDialog(null, "Class name and constructor name are not the same");
+				shownError = true;
+			}
 		}
 		return false;
 	}
@@ -183,9 +182,12 @@ public class Parser{
 		boolean newVar;
 		boolean statement;
 		boolean init;
+		
+		//Recursively check if there is a new variable or statement or right brace
 		if(tnArray.get(curr).getType().equals("rightBrace")){
 			return true;
 		}
+		//Check if it is a new variable
 		else if(tnArray.get(curr).getType().equals("dataType")){
 			newVar = isNewVar();
 			if(newVar){
@@ -193,6 +195,7 @@ public class Parser{
 				return true;
 			}
 		}
+		//Checks if it is an assignment
 		else if(tnArray.get(curr).getType().equals("identifier")){
 			statement = isStatement();
 			if(statement){
@@ -200,24 +203,31 @@ public class Parser{
 				return true;
 			}
 		}
+		//Checks if it is an object initialisation
 		else if(tnArray.get(curr).getType().equals("class")){
 			init = isInit();
-			System.out.println("INIT VAL = " + init);
-			
+						
 			if(init){
 				isVarOrStmt();
 				return true;
 			}
+		}
+		//Outputs an error message if any of the above statements return false
+		if(shownError == false){
+			JOptionPane.showMessageDialog(null, "Error with a new variable statement, an assignment,\n a new object creation or a right brace");
+			shownError = true;
 		}
 		return false;
 	}
 	
 	public boolean isInit(){
 		
-		Parser p;
+		Parser p; 
 		boolean newClass, name, equal, newKey, newClass2, leftParan, isParam, rightParan, semiCol;
 		String thisName, className, constClass;
-		params.clear();
+		params.clear(); //Clears the parameters list for the new objects parameters
+		
+		//Checks if the initialisation is the correct structure
 		className = tnArray.get(curr).getVal();
 		newClass = isClass();
 		thisName = tnArray.get(curr).getVal();
@@ -228,118 +238,192 @@ public class Parser{
 		newClass2 = isClass();
 		leftParan = isLeftParan();
 		isParam = isParam();
-		
 		rightParan = isRightParan();
+		
+		//Sets lineNo to the objects line if in the Main text area, for use in Animator
+		if(this.cName.equals("Main")){
+			lineNo = tnArray.get(curr).getLine();
+		}
+		
 		semiCol = isSemiColon();
-		//System.out.println(newClass + " " + name + " " + equal + " " + newKey + " " + newClass2 + " " + leftParan + " " + isParam + " " + rightParan + " " + semiCol);
+		
+		//Checks if the class name and constructor name are the same
 		if(className.equals(constClass)){
+			
+			//If the correct structure, carry on
 			if(newClass && name && equal && newKey && newClass2 && leftParan && isParam && rightParan && semiCol){
+				
+				//Checks the objects name against variables that already exist
 				for(Object v : vars){
+					
+					//If the object is a Parser, cast as a Parser and check the names
 					if(v instanceof Parser){
 						Parser var = (Parser) v;
+						
+						//If name already exists, output an error to the user
 						if(var.getName().equals(thisName)){
-							System.out.println("Object Already Exists");
+							if(shownError == false){
+								JOptionPane.showMessageDialog(null, "Duplicate names");
+								shownError = true;
+							}
 							return false;
 						}
 					}
+					
+					//If the object is a variable, cast as a variable and check names
 					else if(v instanceof Variable){
 						Variable var = (Variable) v;
 						if(var.getName().equals(thisName)){
-							System.out.println("Object Already Exists");
+							
+							//If name already exists, output an error to the user
+							if(shownError == false){
+								JOptionPane.showMessageDialog(null, "Duplicate names");
+								shownError = true;
+							}
 							return false;
 						}
 					}
 				}
-				p = new Parser(other, thisName, params, className);
-				vars.add(p);
 				
-				r = new Rectangle();
+				//If the name doesn't exist, create a new parser and initiate the objects variables
+				p = new Parser(other, thisName, params, className, a, lineNo, shownError);
+				
+				//Check if an error was shown in the Objects parse tree
+				// and return false if true
+				if(p.getError() == true){
+					shownError = p.getError();
+					return false;
+				}
+				//Add the variable to this objects variable list
+				vars.add(p);
 				if(this.cName.equals("Main")){
-					panel.objects.add(p);
-					panel.repaint();
+					a.vars.add(p); //Add to the Animators list if in the Main text area
 				}
 				return true;
 			}
 			else{
-				System.out.println("Syntax for object creation isn't correct");
+				//Output an error if the object creation went wrong
+				if(shownError == false){
+					JOptionPane.showMessageDialog(null, "Syntax for object creation isn't correct x");
+					shownError = true;
+				}
 				return false;
 			}
 		}else{
-			System.out.println("Class names in initialization aren't the same");
+			//Output an error if the object creation went wrong
+			if(shownError == false){
+				JOptionPane.showMessageDialog(null, "Syntax for object creation isn't correct");
+				shownError = true;
+			}
 		}
 		return false;
 	}
+	
 	public boolean isNewVar(){
 		Variable newVar;
 		String dataType = "";
 		String getName = "";
 		boolean data, name, semiCol;
 		
-		dataType = tnArray.get(curr).getVal();
+		//Check if the new variable syntax is correct
+		dataType = tnArray.get(curr).getVal(); //Used for creating a new Variable object
 		data = isDataType();
-		getName = tnArray.get(curr).getVal();
+		getName = tnArray.get(curr).getVal(); //Used for creating a new Variable object
 		name = isVar();
 		semiCol = isSemiColon();
 		
+		//If the syntax is correct, check if the variable name already exists
 		if(data && name && semiCol){
 			for(Object v : vars){
 				if(v instanceof Variable){
 					Variable var = (Variable) v;
+					
+					//Outputs an error message if name already exists
 					if(var.getName().equals(getName)){
-						System.out.println("VAR ALREADY EXISTS");
+						if(shownError == false){
+							JOptionPane.showMessageDialog(null, "Duplicate names");
+							shownError = true;
+						}
 						return false;
 					}
 				}
 			}
+			//Creates a new variable if the name isn't in use
 			newVar = new Variable(dataType, getName);
 			vars.add(newVar);
 			return true;
 		}
+		//Outputs an error if the variable declaration is incorrect
+		if(shownError == false){
+			JOptionPane.showMessageDialog(null, "New variable declaration is incorrect");
+			shownError = true;
+		}
 		return false;
 	}
+	
 	public boolean isStatement() {
 		String getName;
 		String newVal;
 		getName = tnArray.get(curr).getVal();
-		boolean left, mid, right, leftQuote, isVar, rightQuote, semiCol;
-		left = isVar();
-		mid = isEqual();
+		boolean name, equal, value, leftQuote, isVar, rightQuote, semiCol;
+		name = isVar();
+		equal = isEqual();
 		
-		System.out.println("left = " + left + " mid = " + mid);
-		if(tnArray.get(curr).getType().equals("quote"))
-		{
+		//Checks whether the assignment statement is correct
+		
+		//Checks if the next token is a quote
+		if(tnArray.get(curr).getType().equals("quote")){
+			//Checks the vars list to see if the variable exists
 			for(Object v : vars){
 				if(v instanceof Variable){
 					Variable var = (Variable)v;
+					
+					//If the variable exists, and is a String, check String assignment structure is correct
 					if(var.getName().equals(getName) && var.getDataType().equals("String")){
 						leftQuote = isQuote();
 						newVal = tnArray.get(curr).getVal();
 						isVar = isVar();
 						rightQuote = isQuote();
 						semiCol = isSemiColon();
-					
-						if(left && mid && leftQuote && isVar && rightQuote && semiCol){
+						
+						//If the string assignment structure is correct, set the variable to store the new value
+						//and return true
+						if(name && equal && leftQuote && isVar && rightQuote && semiCol){
 							var.setValue(newVal);
+							vars.set(vars.indexOf(v), var);
 							return true;
 						}
 					}
 				}
 			}
-			System.out.println("NOT A VARIABLE");
+			//Outputs an error if the String assignment structure is incorrect
+			if(shownError == false){
+				JOptionPane.showMessageDialog(null, "Cannot find a String variable in an assignment");
+				shownError = true;
+			}
 			return false;
 		}
+		//Checks if the next token is an identifier
 		else if(tnArray.get(curr).getType().equals("identifier")){
 			for(Object v : vars){
 				if(v instanceof Variable){
 					Variable var = (Variable) v;
+					
+					//Checks if the variable exists, and if it is of type String
+					//then checks variable assignment structure
 					if(var.getName().equals(getName) && var.getDataType().equals("String")){
 						newVal = tnArray.get(curr).getVal();
 						isVar = isVar();
 						semiCol = isSemiColon();
+						
+						//If isVar is true, check if the new variable exists and is of the type String
+						//in both the updatedParams and vars list arrays
 						if(isVar){
 							for(Object w : vars){
 								if(w instanceof Variable){
 									Variable otherVar = (Variable)w;
+									
+									//Checks the new name against the new value name, and if the type is a String in vars list
 									if(otherVar.getName().equals(newVal) && otherVar.getDataType().equals("String")){
 										var.setValue(otherVar.getValue());
 										return true;
@@ -349,6 +433,8 @@ public class Parser{
 							for(Object w : updatedParams){
 								if(w instanceof Variable){
 									Variable thisVar = (Variable)w;
+									
+									//Checks the new name against the new value name, and if the type is a String in updatedParams list
 									if(thisVar.getName().equals(newVal) && thisVar.getDataType().equals("String")){
 										var.setValue(thisVar.getValue());
 										
@@ -356,252 +442,186 @@ public class Parser{
 									}									
 								}
 							}
+							//If the variable doesn't exist, output an error
+							if(shownError == false){
+								JOptionPane.showMessageDialog(null, "Cannot find a String variable in an assignment");
+								shownError = true;
+							}
 							return false;
 						}
 					}
+					
+					//Checks if the names are the same and if it is of type int
 					else if(var.getName().equals(getName) && var.getDataType().equals("int")){
-						newVal = tnArray.get(curr).getVal();
+						newVal = tnArray.get(curr).getVal(); //Gets the new value (Variable name)
 						isVar = isVar();
 						semiCol = isSemiColon();
+						
+						//If isVar is true, checks vars and updatedParams list arrays for the new variable
+						//name that the current variable is being assigned it's value
 						if(isVar){
 							for(Object w : vars){
 								if(w instanceof Variable){
 									Variable otherVar = (Variable)w;
+									
+									//Checks if the new variable is of the type int in the vars list
 									if(otherVar.getName().equals(newVal) && otherVar.getDataType().equals("int")){
 										var.setValue(otherVar.getValue());
 										return true;
 									}
 								}
 							}
+							
 							for(Object w : updatedParams){
 								if(w instanceof Variable){
 									Variable thisVar = (Variable)w;
-									System.out.println("NAME: " + thisVar.getName() + " NEW VAR NAME: " + newVal);
+									
+									//Checks if the new variable is of the type int in the updatedParams
 									if(thisVar.getName().equals(newVal) && thisVar.getDataType().equals("int")){
-										System.out.println("HELLO I AM HERE");
 										var.setValue(thisVar.getValue());
-										
 										return true;
 									}									
 								}
+							}
+							
+							//If the int variable isn't found, an error is output to the user
+							if(shownError == false){
+								JOptionPane.showMessageDialog(null, "Cannot find an int variable in an assignment");
+								shownError = true;
 							}
 							return false;
 						}
 					}
 				}
+				//If the object in the for loop is a Parser
+				//cast it as a Parser
 				else if(v instanceof Parser){
-				Parser var = (Parser) v;
-				if(var.getName().equals(getName)){
-					newVal = tnArray.get(curr).getVal();
-					isVar = isVar();
-					semiCol = isSemiColon();
-					if(isVar){
-						for(Object w : vars){
-							if(w instanceof Parser){
-								Parser otherVar = (Parser)w;
-								if(otherVar.getName().equals(newVal) && otherVar.className.equals(var.className)){
-									var = otherVar;
-									return true;
+					Parser var = (Parser) v;
+					
+					//Checks if the current variable in vars has the same name that is in the assignment
+					//statement
+					if(var.getName().equals(getName)){
+						//Gets the new value that the current variable is being assigned its value
+						newVal = tnArray.get(curr).getVal();
+						isVar = isVar();
+						semiCol = isSemiColon();
+						
+						if(isVar){
+							//Checks if the second variable exists in vars,
+							//and assigns the current Parser reference to the new one
+							for(Object w : vars){
+								if(w instanceof Parser){
+									Parser otherVar = (Parser)w;
+									if(otherVar.getName().equals(newVal) && otherVar.className.equals(var.className)){
+										var = otherVar;
+										System.out.println("VAR LINE NO = " + var.getLineNo());
+										System.out.println("otherVar line no = " + otherVar.getLineNo());
+										return true;
+									}
 								}
 							}
-						}
-						for(Object w : updatedParams){
-							if(w instanceof Parser){
-								Parser thisVar = (Parser)w;
-								System.out.println("NAME: " + thisVar.getName() + " NEW VAR NAME: " + newVal);
-								if(thisVar.getName().equals(newVal) && thisVar.className.equals(var.className)){
-									System.out.println("HELLO I AM HERE");
-									var = thisVar;
-									
-									return true;
-								}									
+							//Checks if the second variable exists in vars,
+							//and assigns the current Parser reference to the new one
+							for(Object w : updatedParams){
+								if(w instanceof Parser){
+									Parser thisVar = (Parser)w;
+									if(thisVar.getName().equals(newVal) && thisVar.className.equals(var.className)){
+										var = thisVar;
+										vars.set(vars.indexOf(v), var);
+										System.out.println("VAR LINE NO = " + var.getLineNo());
+										System.out.println("otherVar line no = " + thisVar.getLineNo());
+										return true;
+									}										
+								}
 							}
+							
+							//Outputs an error dialog to the user if the object cannot be found
+							if(shownError == false){
+								JOptionPane.showMessageDialog(null, "Cannot find an object with that name in an assignment");
+								shownError = true;
+							}
+							return false;
 						}
-						return false;
 					}
 				}
 			}
-			}
 			return false;
 		}
+		//Checks if the token on the right side of the = sign is a number
 		else if(tnArray.get(curr).getType().equals("num")){
+			
+			//Loops through the vars list to check for the variable on the left side of the = sign
 			for(Object v : vars){
 				if(v instanceof Variable){	
 					Variable var = (Variable)v;
+					
+					//Checks if the current variable has the same name as the one the user has typed in
+					//and if the variable is of type int
 					if(var.getName().equals(getName) && var.getDataType().equals("int")){
 					
 						newVal = tnArray.get(curr).getVal();
-						right = isInt();
+						value = isInt();
 						semiCol = isSemiColon();
-					
-						System.out.println("Right = " + right + " SemiCol = " + semiCol);
-					
-						if(left && mid && right && semiCol){
+						
+						//If the int assignment structure is correct, assign the variable with the new value
+						if(name && equal && value && semiCol){
+							
 							var.setValue(newVal);
+							vars.set(vars.indexOf(v), var);
 							return true;
 						}
 					}
 				}
 			}
-			System.out.println("WRONG VARIABLE OR TYPE");
+			//Output an error if the variable isn't the correct type, or the variable isn't found
+			if(shownError == false){
+				JOptionPane.showMessageDialog(null, "Cannot find an int variable in an assignment");
+				shownError = true;
+			}
 			return false;
 		}
-		System.out.println("NOT A STATEMENT");
-		return false;
-	}
-	public boolean isExpression() {
-		boolean left;
-		boolean mid;
-		boolean right;
-		
-		if(tnArray.get(curr+1).getType().equals("eol"))
-		{
-			left = isInt();
-			if(left){
-				return true;
-			}
-		}
-		else if(tnArray.get(curr+1).getType().equals("op")){
-			left = isInt();
-			mid = isOp();
-			right = isExpression();
-			if(left && mid && right){
-				return true;
-			}
-		}
-		System.out.println("WHY AM I HERE");
 		return false;
 	}
 	
-	public boolean isClass(){
-		highlight();
-		if(tnArray.get(curr).getType().equals("class")){
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("Type found: " + tnArray.get(curr).getType());
-		return false;
-	}
-	
-	public boolean isVar(){
-		highlight();
-		if(tnArray.get(curr).getType().equals("identifier"))
-		{
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("NOT A VAR");
-		return false;
-	}
-	
-	public boolean isEqual(){
-		highlight();
-		if(tnArray.get(curr).getType().equals("equal"))
-		{
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("NOT AN EQUAL");
-		return false;
-	}
-	
-	public boolean isOp(){
-		highlight();
-		if(tnArray.get(curr).getType().equals("op")){
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("NOT AN OP");
-		return false;
-	}
-	
-	public boolean isSemiColon(){
-		highlight();
-		if(tnArray.get(curr).getType().equals("eol")){
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("NOT A SEMICOLON");
-		return false;
-	}
-	
-	public boolean isLeftParan(){
-		highlight();
-		if(tnArray.get(curr).getType().equals("leftParan")){
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("NOT A LEFT PARAN");
-		return false;
-	}
-
-	public boolean isRightParan(){
-		
-		highlight();
-		if(tnArray.get(curr).getType().equals("rightParan")){
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("NOT A RIGHT PARAN");
-		return false;
-	}
-	
-	public boolean isLeftBrace(){
-		highlight();
-		if(tnArray.get(curr).getType().equals("leftBrace")){
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("NOT A LEFT BRACE = " + tnArray.get(curr).getVal());
-		return false;
-	}
-
-	public boolean isRightBrace(){
-		highlight();
-		if(tnArray.get(curr).getType().equals("rightBrace")){
-			curr++;
-			removeHighlight();
-			return true;
-		}
-		System.out.println("Type = " + tnArray.get(curr).getType());
-		System.out.println("VAL = " + tnArray.get(curr).getVal());
-		System.out.println("NOT A RIGHT BRACE");
-		return false;
-	}
-	
+	//Recursively checks if the argument list is correct
 	public boolean isArg(int i){
-		highlight();
+		
 		boolean data, name, thisClass;
 		String thisDataType;
 		String thisName;
 		int index;
+		
+		//index is used to keep an index in tmpParams
 		index = i;
 		
+		//Checks if the argument list is empty
 		if(tnArray.get(curr).getType().equals("rightParan")){
 			return true;
 		}
+		//Checks if the current token is a datatype
 		else if(tnArray.get(curr).getType().equals("dataType")){
-			if(tmpParam.get(index) instanceof Variable)
-			{
+			
+			if(tmpParam.get(index) instanceof Variable){
+				
 				Variable var = (Variable)tmpParam.get(index);
 				
+				//Checks if the argument structure DataType and then Variable is followed
 				thisDataType = tnArray.get(curr).getVal();
 				data = isDataType();
 				thisName = tnArray.get(curr).getVal();
 				name = isVar();
 				
+				//If the list tmpParam is empty or not initialized
+				//output an error dialog
 				if(tmpParam == null || tmpParam.isEmpty()){
-					System.out.println("NO PARAMETERS");
+					if(shownError == false){
+						JOptionPane.showMessageDialog(null, "Expected parameters");
+						shownError = true;
+					}
 					return false;
 				}
+				//If the argument structure and datatype of the tmpParam var is the same
+				//set the name to equal the arguments name, and add it to updatedParams
 				else if(data && name && var.getDataType().equals(thisDataType)){
 					var.setName(thisName);
 					updatedParams.add(var);
@@ -609,11 +629,17 @@ public class Parser{
 					return true;
 				}
 				else{
-					System.out.println("HI IM HERE ARGUMENTS AND PARAMS DON'T MATCH");
+					//Outputs an error dialog if the arguments and parameters are not the same datatypes
+					if(shownError == false){
+						JOptionPane.showMessageDialog(null, "Constructor arguments and object parameters don't match");
+						shownError = true;
+					}
 				}
 			}
 		}
+		//Checks if the current token is of type comma
 		else if(tnArray.get(curr).getType().equals("comma")){
+			//Increments the curr value to move on to the next token
 			curr++;
 			if(isArg(index)){
 				return true;
@@ -622,55 +648,86 @@ public class Parser{
 				return false;
 			}
 		}
+		//Checks if the current token is a class name
 		else if(tnArray.get(curr).getType().equals("class")){
+			
+			//Checks if the variable at the current index in tmpParam
+			//is a Parser
 			if(tmpParam.get(index) instanceof Parser){
 				Parser obj = (Parser) tmpParam.get(index);
 				thisDataType = tnArray.get(curr).getVal();
 				thisClass = isClass();
 				thisName = tnArray.get(curr).getVal();
-				System.out.println("THIS NAME = " + thisName);
 				name = isVar();
-
+				
+				//Checks if the tmpParam list is null or is empty
+				//and outputs an error message if it is
 				if(tmpParam == null || tmpParam.isEmpty()){
-					System.out.println("No parameters");
+					if(shownError == false){
+						JOptionPane.showMessageDialog(null, "Expected parameters");
+						shownError = true;
+					}
 					return false;
 				}
+				//checks if the class name is the same type as the parameter
 				else if(thisClass && name && obj.className.equals(thisDataType)){
+					//Sets the name of the current variable to the argument name and also adds it
+					//to the updateParams list
 					obj.setName(thisName);
 					updatedParams.add(obj);
 					isArg(index + 1);
 					return true;
 				}
 				else{
-					System.out.println("ARGUMENTS AND PARAMS DON'T MATCH");
+					//Outputs an error message if the arguments and parameters don't match
+					if(shownError == false){
+						JOptionPane.showMessageDialog(null, "Constructor arguments and object parameters don't match");
+						shownError = true;
+					}
 				}
 			}
 		}
-		System.out.println("NOT AN ARG");
+		//Outputs an error message if an argument is expected or a closing parenthesis
+		if(shownError == false){
+			JOptionPane.showMessageDialog(null, "Expected an argument or a closing paranthesis");
+			shownError = true;
+		}
 		return false;
 	}
 	
+	//Recursively calls itself until a right parenthesis or an error
 	public boolean isParam(){
-		highlight();
 		boolean name;
 		String getName;
 		
+		//Checks if the current token is a right parenthesis
 		if(tnArray.get(curr).getType().equals("rightParan")){
 			return true;
 		}
+		//Checks if the current token is an identifier name
 		else if(tnArray.get(curr).getType().equals("identifier"))
 		{
 			getName = tnArray.get(curr).getVal();
 			name = isVar();
+			
+			//Checks if the parameter exists in vars list
 			for(Object v : vars){
 				if(v instanceof Variable){
 					Variable var = (Variable)v;
+					
+					//Checks if the current object in the iteration has the same name
+					//as the parameter variable
 					if(var.getName().equals(getName) && name){ //checks whether the variable exists to pass through
 						params.add(var);
 						if(isParam()){
 							return true;
 						}
 						else{
+							//If the recursive call returns false, output an error message
+							if(shownError == false){
+								JOptionPane.showMessageDialog(null, "Paramaters in object creation are incorrect");
+								shownError = true;
+							}
 							return false;
 						}
 					}
@@ -678,6 +735,8 @@ public class Parser{
 				else if(v instanceof Parser){
 					Parser var = (Parser)v;
 					
+					//Checks if the Parser name in the current iteration of the for loop
+					//has the same name as the parameter
 					if(var.getName().equals(getName) && name){
 						params.add(var);
 						if(isParam()){
@@ -685,89 +744,260 @@ public class Parser{
 							return true;
 						}
 						else{
-							System.out.println("PARSER IS FALSE");
+							//If the recursive call returns false, output an error message
+							if(shownError == false){
+								JOptionPane.showMessageDialog(null, "Paramaters in object creation are incorrect");
+								shownError = true;
+							}
 							return false;
 						}
 					}
 					
 				}
 			}
-			System.out.println("Variable doesn't exist");
+			
+			//If the variable doesn't exist in vars, output an error message
+			if(shownError == false){
+				JOptionPane.showMessageDialog(null, "Variable in the parameters of an object creation does not exist");
+				shownError = true;
+			}
 		}
+		//Checks if the next token is a comma
 		else if(tnArray.get(curr).getType().equals("comma")){
-			System.out.println("HELLO THERE COMMA");
 			curr++;
 			if(isParam()){
 				return true;
 			}
 		}
-		System.out.println("WHAT IS WRONG : " + tnArray.get(curr).getVal());
-		System.out.println("Unknown parameter");
+		return false;
+	}
+	
+	public boolean isClass(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is a class name
+		if(tnArray.get(curr).getType().equals("class")){
+			//Increments the curr value to move on to the next token
+			curr++;
+			//returns true if it is a class name
+			return true;
+		}
+		//returns false if it isn't a class name
+		return false;
+	}
+	
+	public boolean isVar(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is an identifier name
+		if(tnArray.get(curr).getType().equals("identifier")){
+			//Increments the curr value to move on to the next token
+			curr++;
+			//Returns true if it is an identifier name
+			return true;
+		}
+		//Returns false if it isn't an identifier name
+		return false;
+	}
+	
+	public boolean isEqual(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is an equal sign
+		if(tnArray.get(curr).getType().equals("equal")){
+			//Increments the curr value to move on to the next token
+			curr++;
+			//Returns true if it is an equal
+			return true;
+		}
+		//Returns false if it isn't an equal sign
+		return false;
+	}
+	
+	public boolean isSemiColon(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is of type eol
+		if(tnArray.get(curr).getType().equals("eol")){
+			//Increments the curr value to move on to the next token
+			curr++;
+			//Returns true if it is of type eol
+			return true;
+		}
+		//Returns false if it isn't of type eol
+		return false;
+	}
+	
+	public boolean isLeftParan(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is a left parenthesis
+		if(tnArray.get(curr).getType().equals("leftParan")){
+			//Increments the curr value to move on to the next token
+			curr++;
+			return true;
+		}
+		return false;
+	}
+
+	public boolean isRightParan(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is a right parenthesis
+		if(tnArray.get(curr).getType().equals("rightParan")){
+			//Increments the curr value to move on to the next token
+			curr++;
+			return true;
+		}
+		return false;
+	}
+	
+	public boolean isLeftBrace(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is a left brace
+		if(tnArray.get(curr).getType().equals("leftBrace")){
+			//Increments the curr value to move on to the next token
+			curr++;
+			return true;
+		}
+		return false;
+	}
+
+	public boolean isRightBrace(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is a right brace
+		if(tnArray.get(curr).getType().equals("rightBrace")){
+			curr++;
+			return true;
+		}
 		return false;
 	}
 	
 	public boolean isDataType(){
+		//Calls the highlight method
 		highlight();
+		//Checks if the current token is type dataType
 		if(tnArray.get(curr).getType().equals("dataType")){
+			//Increments the curr value to move on to the next token
 			curr++;
-			removeHighlight();
 			return true;
 		}
 		return false;
 	}
 	
 	public boolean isNewKeyword(){
+		//Calls the highlight method
 		highlight();
+		//Checks if the current token is new
 		if(tnArray.get(curr).getType().equals("new")){
+			//Increments the curr value to move on to the next token
 			curr++;
-			removeHighlight();
 			return true;
 		}
 		return false;
 	}
 	
 	public boolean isQuote(){
+		//Calls the highlight method
 		highlight();
+		//Checks if the current token is quote
 		if(tnArray.get(curr).getType().equals("quote")){
+			//Increments the curr value to move on to the next token
 			curr++;
-			removeHighlight();
 			return true;
 		}
 		return false;
 	}
 	
 	public boolean isInt(){
+		//Calls the highlight method
 		highlight();
+		//Checks if the current token is num
 		if(tnArray.get(curr).getType().equals("num")){
+			//Increments the curr value to move on to the next token
 			curr++;
-			removeHighlight();
+			return true;
+		}
+		return false;
+	}
+	
+	public boolean isClassDec(){
+		//Calls the highlight method
+		highlight();
+		//Checks if the current token is classDec
+		if(tnArray.get(curr).getType().equals("classDec")){
+			//Increments the curr value to move on to the next token
+			curr++;
 			return true;
 		}
 		return false;
 	}
 	
 	public void highlight(){
-		/*try {                
-			startIndex = main.getLineStartOffset(tnArray.get(curr).getLine());
-			endIndex = main.getLineEndOffset(tnArray.get(curr).getLine());
-	        main.getHighlighter().addHighlight(startIndex, endIndex, hl);
-	    } catch (BadLocationException ex) {
-	        ex.printStackTrace();
-	    }*/
-	}
-	
-	public void removeHighlight(){
-		//main.getHighlighter().removeAllHighlights();
 		
+		//sets the current token to not have been highlighted yet
+		hasHighlighted = false;
+		finished = false;
+		String highlightOn;
+		
+		try{
+			//Checks if the parser is analysing the Main text area
+			if(cName.equals("Main")){
+				
+				//Sets the start index of the current highlighter to the current tokens line number
+				startIndex = main.getLineStartOffset(tnArray.get(curr).getLine());
+				//Sets the end index of the current highlighter to the current tokens line number
+				endIndex = main.getLineEndOffset(tnArray.get(curr).getLine());
+				//Sets the highlightOn value to Main
+				highlightOn = "Main";
+				
+			}
+			else{
+				//Sets the start index of the current highlighter to the current tokens line number
+				startIndex = other.getLineStartOffset(tnArray.get(curr).getLine());
+				//Sets the end index of the current highlighter to the current tokens line number
+				endIndex = other.getLineEndOffset(tnArray.get(curr).getLine());
+				//Sets the highlightOn value to Other
+				highlightOn = "Other";
+			}		
+			//Adds a new HighlightLine to the Animators highlighters list
+			a.highlighters.add(new HighlightLine(startIndex, endIndex, highlightOn, tnArray.get(curr).getLine()));
+		}
+		catch(BadLocationException ie){
+			
+		}   
 	}
 	
+	//Checks if the object has been painted to the animated panel
+	public boolean isPainted(){
+		return painted;
+	}
+	
+	//Checks the line number of the current Parser object creation
+	public int getLineNo(){
+		return lineNo;
+	}
+	
+	//Checks if there has been an error in the Parser
+	public boolean getError(){
+		return shownError;
+	}
+	
+	//Returns the objects name
 	public String getName(){
 		return name;
 	}
+	
+	//Returns the list of variables in the class
 	public List<Object> getVars(){
 		return vars;
 	}
+	
+	//Sets the objects name
 	public void setName(String n){
 		name = n;
 	}
+
 }

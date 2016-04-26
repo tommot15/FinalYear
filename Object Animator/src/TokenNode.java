@@ -1,8 +1,10 @@
-
+//TokenNode class for use in the ScanText class
+//Stores a tokens type, value and line number
 public class TokenNode {
 	private String type;
 	private String value;
 	private int line;
+	
 	public TokenNode(){}
 	
 	public TokenNode(String v, String t, int l){

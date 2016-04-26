@@ -1,4 +1,5 @@
-
+//Variable class for use in the Parser class
+//Stores a variables dataType, name and value
 public class Variable{
 	private String dataType;
 	private String name;
@@ -10,7 +11,6 @@ public class Variable{
 		this.value = "";
 	}
 	public Variable(){
-		
 	}
 	
 	public String getDataType(){
