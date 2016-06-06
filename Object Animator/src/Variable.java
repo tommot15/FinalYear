@@ -36,7 +36,4 @@ public class Variable{
 		this.value = v;
 	}
 	
-	public void printVar(){
-		System.out.println("DataType: " + this.dataType + "\nName: " + this.name + "\nValue: " + this.value + "\n");
-	}
 }

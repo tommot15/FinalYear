@@ -80,7 +80,8 @@ public class Parser{
 		targetClass = c;
 		lineNo = l;
 		
-		while(!correctClass && tnArray.get(curr) != null){ //scans code until the correct class is found
+		//Scans code until the correct class is found
+		while(!correctClass && tnArray.get(curr) != null){ 
 			isBlock();
 			curr++;
 		}
@@ -304,7 +305,7 @@ public class Parser{
 			else{
 				//Output an error if the object creation went wrong
 				if(shownError == false){
-					JOptionPane.showMessageDialog(null, "Syntax for object creation isn't correct x");
+					JOptionPane.showMessageDialog(null, "Syntax for object creation isn't correct");
 					shownError = true;
 				}
 				return false;
@@ -514,8 +515,6 @@ public class Parser{
 									Parser otherVar = (Parser)w;
 									if(otherVar.getName().equals(newVal) && otherVar.className.equals(var.className)){
 										var = otherVar;
-										System.out.println("VAR LINE NO = " + var.getLineNo());
-										System.out.println("otherVar line no = " + otherVar.getLineNo());
 										return true;
 									}
 								}
@@ -528,8 +527,6 @@ public class Parser{
 									if(thisVar.getName().equals(newVal) && thisVar.className.equals(var.className)){
 										var = thisVar;
 										vars.set(vars.indexOf(v), var);
-										System.out.println("VAR LINE NO = " + var.getLineNo());
-										System.out.println("otherVar line no = " + thisVar.getLineNo());
 										return true;
 									}										
 								}
